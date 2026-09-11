@@ -1,31 +1,205 @@
 <!doctype html>
-<html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#0b1220"><title>Puantaj Cep</title>
-<style>
-:root{--bg:#0b1220;--p:#111827;--l:#263247;--t:#f8fafc;--m:#9fb0c7;--g:#22c55e;--b:#60a5fa;--r:#ef4444}*{box-sizing:border-box}body{margin:0;background:#0b1220;color:var(--t);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif}.w{max-width:980px;margin:auto;padding:16px 12px 80px}h1{font-size:1.5rem;margin:4px 0}.sub{color:var(--m);margin-bottom:14px}.cards{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;margin-bottom:12px}.card,.panel{background:var(--p);border:1px solid var(--l);border-radius:16px}.card{padding:12px}.card small,label{color:var(--m)}.card b{display:block;font-size:1.25rem;margin-top:4px}.panel{padding:13px;margin-bottom:12px}.panel h2{font-size:1rem;margin:0 0 11px}.form{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}label{display:block;font-size:.78rem;margin-bottom:4px}input,select,button{width:100%;padding:11px;border-radius:11px;border:1px solid var(--l);background:#0e1728;color:var(--t);font:inherit}button{font-weight:700;cursor:pointer;background:#1c2b42}.primary{background:var(--g);color:#052e16}.danger{background:#3a1518;color:#fecaca}.actions{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:10px}.filters{display:grid;grid-template-columns:1.3fr 1fr 1fr;gap:7px}.tw{overflow:auto;border:1px solid var(--l);border-radius:12px;margin-top:9px}table{border-collapse:collapse;width:100%;min-width:760px}th,td{padding:9px;border-bottom:1px solid var(--l);font-size:.82rem;text-align:left}th{background:#121b2c}.pill{padding:3px 7px;border-radius:999px;background:#23314a;font-size:.72rem}.row{display:flex;gap:5px}.row button{width:auto;padding:6px 8px;font-size:.74rem}.muted{color:var(--m);font-size:.76rem;margin-top:8px}.empty{text-align:center;color:var(--m);padding:24px}@media(max-width:700px){.form,.filters{grid-template-columns:1fr}.actions{grid-template-columns:1fr 1fr}.w{padding:11px 9px 70px}.card{padding:9px}.card b{font-size:1.08rem}}
-</style></head><body><div class="w">
-<h1>📋 Puantaj Cep</h1><div class="sub">Şantiye / ekip puantajı • çevrimdışı • cihazda saklanır</div>
-<div class="cards"><div class="card"><small>Kayıt</small><b id="c">0</b></div><div class="card"><small>Toplam Saat</small><b id="h">0</b></div><div class="card"><small>Fazla Mesai</small><b id="o">0</b></div></div>
-<section class="panel"><h2>Yeni / Düzenle Kayıt</h2><form id="f"><input type="hidden" id="id"><div class="form">
-<div><label>Personel</label><input id="emp" list="names" required placeholder="Örn. Ahmet Yılmaz"><datalist id="names"></datalist></div>
-<div><label>Tarih</label><input id="date" type="date" required></div>
-<div><label>Giriş</label><input id="start" type="time" value="08:00"></div><div><label>Çıkış</label><input id="end" type="time" value="17:00"></div>
-<div><label>Mola (dk)</label><input id="br" type="number" min="0" step="5" value="60"></div><div><label>Normal Süre (saat)</label><input id="nh" type="number" min="0" step="0.5" value="8"></div>
-<div><label>Durum</label><select id="st"><option>Çalıştı</option><option>Yarım Gün</option><option>İzinli</option><option>Raporlu</option><option>Gelmedi</option></select></div>
-<div><label>Not</label><input id="note" placeholder="İş kalemi / açıklama"></div></div>
-<div class="actions"><button class="primary" type="submit">💾 Kaydet</button><button type="button" id="reset">↩️ Temizle</button><button type="button" id="csv">⬇️ CSV</button><button type="button" id="bak">🧰 Yedek</button></div></form>
-<div class="muted">Yedekleri düzenli al. Dosyalar İndirilenler/PuantajCep klasörüne kaydedilir.</div></section>
-<section class="panel"><h2>Kayıtlar</h2><div class="filters"><input id="q" placeholder="Personel ara"><input id="month" type="month"><select id="fs"><option value="">Tüm durumlar</option><option>Çalıştı</option><option>Yarım Gün</option><option>İzinli</option><option>Raporlu</option><option>Gelmedi</option></select></div>
-<div class="tw"><table><thead><tr><th>Tarih</th><th>Personel</th><th>Durum</th><th>Giriş</th><th>Çıkış</th><th>Süre</th><th>FM</th><th>Not</th><th>İşlem</th></tr></thead><tbody id="rows"></tbody></table><div id="empty" class="empty">Henüz kayıt yok.</div></div></section>
-<section class="panel"><h2>Yedekten Geri Yükle</h2><input id="restore" type="file" accept="application/json,.json"><div class="muted">Seçilen yedek mevcut kayıtlarla birleştirilir.</div></section>
-</div><script>
-const KEY='puantajCep_v1',$=x=>document.getElementById(x),today=new Date().toISOString().slice(0,10);let data=JSON.parse(localStorage.getItem(KEY)||'[]');$('date').value=today;$('month').value=today.slice(0,7);
-const fmt=n=>Number(n||0).toLocaleString('tr-TR',{maximumFractionDigits:2});const esc=s=>String(s??'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
-function hours(s,e,b,status){if(!s||!e||!['Çalıştı','Yarım Gün'].includes(status))return 0;let[a,c]=s.split(':').map(Number),[d,f]=e.split(':').map(Number),m=d*60+f-(a*60+c);if(m<0)m+=1440;return Math.max(0,(m-Number(b||0))/60)}
-function save(){localStorage.setItem(KEY,JSON.stringify(data));render()}function clear(){ $('id').value='';$('emp').value='';$('date').value=today;$('start').value='08:00';$('end').value='17:00';$('br').value='60';$('nh').value='8';$('st').value='Çalıştı';$('note').value=''}
-$('f').onsubmit=e=>{e.preventDefault();let st=$('st').value,h=hours($('start').value,$('end').value,$('br').value,st),nh=Number($('nh').value||8),r={id:$('id').value||Date.now()+'_'+Math.random().toString(16).slice(2),employee:$('emp').value.trim(),date:$('date').value,start:$('start').value,end:$('end').value,breakMin:Number($('br').value||0),normalHours:nh,status:st,note:$('note').value.trim(),hours:h,overtime:Math.max(0,h-nh)};let i=data.findIndex(x=>x.id===r.id);i>=0?data[i]=r:data.push(r);save();clear()};$('reset').onclick=clear;
-window.editR=id=>{let r=data.find(x=>x.id===id);if(!r)return;$('id').value=r.id;$('emp').value=r.employee;$('date').value=r.date;$('start').value=r.start||'';$('end').value=r.end||'';$('br').value=r.breakMin??0;$('nh').value=r.normalHours??8;$('st').value=r.status;$('note').value=r.note||'';scrollTo({top:0,behavior:'smooth'})};window.delR=id=>{if(confirm('Bu kaydı silmek istiyor musun?')){data=data.filter(x=>x.id!==id);save()}};
-function render(){let q=$('q').value.trim().toLocaleLowerCase('tr-TR'),mo=$('month').value,fs=$('fs').value,a=data.filter(r=>(!q||r.employee.toLocaleLowerCase('tr-TR').includes(q))&&(!mo||(r.date||'').startsWith(mo))&&(!fs||r.status===fs)).sort((x,y)=>(y.date||'').localeCompare(x.date||''));$('rows').innerHTML=a.map(r=>`<tr><td>${esc(r.date)}</td><td><b>${esc(r.employee)}</b></td><td><span class="pill">${esc(r.status)}</span></td><td>${esc(r.start||'-')}</td><td>${esc(r.end||'-')}</td><td>${fmt(r.hours)} s</td><td>${fmt(r.overtime)} s</td><td>${esc(r.note||'-')}</td><td><div class="row"><button onclick="editR('${r.id}')">Düzenle</button><button class="danger" onclick="delR('${r.id}')">Sil</button></div></td></tr>`).join('');$('empty').style.display=a.length?'none':'block';$('c').textContent=a.length;$('h').textContent=fmt(a.reduce((s,r)=>s+Number(r.hours||0),0));$('o').textContent=fmt(a.reduce((s,r)=>s+Number(r.overtime||0),0));$('names').innerHTML=[...new Set(data.map(r=>r.employee).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'tr')).map(n=>`<option value="${esc(n)}">`).join('')}
-['q','month','fs'].forEach(x=>$(x).oninput=render);function dl(name,content,type){if(window.Android&&Android.saveText){Android.saveText(name,content,type);return}let u=URL.createObjectURL(new Blob([content],{type})),a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),1000)}
-$('csv').onclick=()=>{let head=['Tarih','Personel','Durum','Giriş','Çıkış','Mola(dk)','Toplam Saat','Fazla Mesai','Normal Saat','Not'],rows=[head,...data.map(r=>[r.date,r.employee,r.status,r.start,r.end,r.breakMin,r.hours,r.overtime,r.normalHours,r.note])].map(r=>r.map(v=>`"${String(v??'').replaceAll('"','""')}"`).join(';'));dl('puantaj_'+today+'.csv','\ufeff'+rows.join('\n'),'text/csv;charset=utf-8')};$('bak').onclick=()=>dl('puantaj_yedek_'+today+'.json',JSON.stringify(data,null,2),'application/json');
-$('restore').onchange=async e=>{let f=e.target.files?.[0];if(!f)return;try{let inc=JSON.parse(await f.text());if(!Array.isArray(inc))throw 0;let m=new Map(data.map(r=>[r.id,r]));inc.forEach(r=>m.set(r.id||Date.now()+'_'+Math.random(),r));data=[...m.values()];save();alert('Yedek geri yüklendi.')}catch{alert('Yedek okunamadı.')}e.target.value=''};render();
-</script></body></html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#0b1220">
+  <title>Puantaj Cep</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">PUANTAJ CEP 2.0</div>
+        <h1>🏗️ Şantiye Yönetimi</h1>
+      </div>
+      <button class="icon-btn" id="backupBtn" title="Yedek al">🧰</button>
+    </header>
+
+    <nav class="site-nav" id="siteNav"></nav>
+
+    <main>
+      <section id="homeView" class="view active">
+        <div class="hero-row">
+          <div>
+            <h2>Genel Bakış</h2>
+            <p class="muted">Tüm şantiyelerin çalışma, devam ve finans özeti.</p>
+          </div>
+          <button class="primary compact" id="addSiteBtn">＋ Şantiye Ekle</button>
+        </div>
+
+        <div class="summary-grid" id="globalSummary"></div>
+        <div class="site-card-grid" id="siteCards"></div>
+
+        <section class="panel">
+          <div class="panel-head">
+            <div><h3>Tüm Şantiyeler • Günlük Çalışan Sayısı</h3><p class="muted">Son 30 takvim günü</p></div>
+          </div>
+          <canvas id="globalChart" class="chart" height="220"></canvas>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head"><div><h3>Veri Yönetimi</h3><p class="muted">Tüm şantiyeler, işçiler, puantajlar ve avanslar.</p></div></div>
+          <div class="action-grid three">
+            <button id="exportAllCsvBtn">⬇️ Genel CSV</button>
+            <button id="restoreBtn">♻️ Yedekten Yükle</button>
+            <button class="danger" id="clearAllBtn">🗑️ Tüm Veriyi Sil</button>
+          </div>
+          <input id="restoreFile" type="file" accept="application/json,.json" hidden>
+        </section>
+      </section>
+
+      <section id="siteView" class="view">
+        <div class="site-title-row">
+          <div>
+            <button class="back-link" id="backHomeBtn">‹ Ana Sayfa</button>
+            <h2 id="siteTitle">Şantiye</h2>
+            <p class="muted" id="siteMeta"></p>
+          </div>
+          <button id="siteSettingsBtn" class="compact">⚙️ Şantiye</button>
+        </div>
+
+        <div class="summary-grid" id="siteSummary"></div>
+
+        <nav class="subtabs" id="siteTabs">
+          <button data-tab="attendance" class="active">📋 Puantaj</button>
+          <button data-tab="finance">💰 Hakediş & Avans</button>
+          <button data-tab="charts">📊 Grafikler</button>
+          <button data-tab="workers">👷 İşçiler</button>
+        </nav>
+
+        <section class="tab-panel active" id="tab-attendance">
+          <section class="panel">
+            <div class="panel-head responsive">
+              <div><h3>Günlük Puantaj</h3><p class="muted">Seçili tarihte tüm işçiler tek tabloda.</p></div>
+              <div class="date-tools">
+                <button class="compact" id="prevDayBtn">‹</button>
+                <input id="attendanceDate" type="date">
+                <button class="compact" id="nextDayBtn">›</button>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="attendance-table">
+                <thead><tr><th>İşçi</th><th>Durum</th><th>Giriş</th><th>Paydos</th><th>Mola</th><th>Saat</th><th>Not</th><th></th></tr></thead>
+                <tbody id="attendanceRows"></tbody>
+              </table>
+              <div class="empty" id="attendanceEmpty">Bu şantiyeye henüz işçi eklenmedi.</div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head responsive">
+              <div><h3>Puantaj Geçmişi</h3><p class="muted">Kayıtları tarih, işçi ve duruma göre süz.</p></div>
+              <button class="compact" id="siteCsvBtn">⬇️ Şantiye CSV</button>
+            </div>
+            <div class="filters four">
+              <input id="attMonthFilter" type="month">
+              <select id="attWorkerFilter"><option value="">Tüm işçiler</option></select>
+              <select id="attStatusFilter"><option value="">Tüm durumlar</option><option>Geldi</option><option>Yarım Gün</option><option>İzinli</option><option>Raporlu</option><option>Gelmedi</option></select>
+              <input id="attSearch" placeholder="Notlarda ara…">
+            </div>
+            <div class="table-wrap">
+              <table><thead><tr><th>Tarih</th><th>İşçi</th><th>Durum</th><th>Giriş</th><th>Paydos</th><th>Çalışma</th><th>Gün</th><th>Not</th><th></th></tr></thead><tbody id="historyRows"></tbody></table>
+            </div>
+          </section>
+        </section>
+
+        <section class="tab-panel" id="tab-finance">
+          <section class="panel">
+            <div class="panel-head responsive">
+              <div><h3>İşçi Hakediş Özeti</h3><p class="muted">Yevmiye, tahakkuk, avans ve kalan alacak.</p></div>
+              <input id="financeMonth" type="month" class="month-input">
+            </div>
+            <div class="table-wrap">
+              <table><thead><tr><th>İşçi</th><th>Yevmiye</th><th>Çalışılan Gün</th><th>Ay Hakedişi</th><th>Ay Avansı</th><th>Ay Kalanı</th><th>Toplam Kalan</th></tr></thead><tbody id="financeRows"></tbody></table>
+            </div>
+          </section>
+
+          <div class="two-col">
+            <section class="panel">
+              <div class="panel-head"><div><h3>Avans Kaydı</h3><p class="muted">Hangi işçi, hangi gün, ne kadar aldı.</p></div></div>
+              <form id="advanceForm" class="form-grid two">
+                <input type="hidden" id="advanceId">
+                <div><label>İşçi</label><select id="advanceWorker" required></select></div>
+                <div><label>Tarih</label><input id="advanceDate" type="date" required></div>
+                <div><label>Tutar (₺)</label><input id="advanceAmount" type="number" min="0" step="0.01" inputmode="decimal" required></div>
+                <div><label>Açıklama</label><input id="advanceNote" placeholder="Örn. haftalık avans"></div>
+                <div class="span-2 action-grid two"><button class="primary" type="submit">💾 Avansı Kaydet</button><button type="button" id="advanceResetBtn">Temizle</button></div>
+              </form>
+            </section>
+
+            <section class="panel">
+              <div class="panel-head"><div><h3>Avans Geçmişi</h3><p class="muted">Tarih bazında tüm ödemeler.</p></div></div>
+              <div class="table-wrap compact-table"><table><thead><tr><th>Tarih</th><th>İşçi</th><th>Tutar</th><th>Not</th><th></th></tr></thead><tbody id="advanceRows"></tbody></table></div>
+            </section>
+          </div>
+
+          <section class="panel">
+            <div class="panel-head responsive">
+              <div><h3>İşçi Aylık Detayı</h3><p class="muted">Ay ay çalışma, hakediş, avans ve bakiye.</p></div>
+              <select id="financeWorkerDetail"></select>
+            </div>
+            <div class="table-wrap"><table><thead><tr><th>Ay</th><th>Çalışılan Gün</th><th>Hakediş</th><th>Avans</th><th>Kalan</th></tr></thead><tbody id="workerMonthRows"></tbody></table></div>
+            <canvas id="workerFinanceChart" class="chart" height="220"></canvas>
+          </section>
+        </section>
+
+        <section class="tab-panel" id="tab-charts">
+          <section class="panel">
+            <div class="panel-head responsive">
+              <div><h3>Şantiye Çalışma Grafiği</h3><p class="muted">Günlük çalışan kişi sayısı. Yoğunluğun hangi gün artıp azaldığını gör.</p></div>
+              <select id="chartRange"><option value="30">Son 30 gün</option><option value="60">Son 60 gün</option><option value="90">Son 90 gün</option><option value="all">Tümü</option></select>
+            </div>
+            <canvas id="siteWorkChart" class="chart" height="260"></canvas>
+          </section>
+          <section class="panel">
+            <div class="panel-head"><div><h3>Aylık Adam/Gün</h3><p class="muted">Şantiyenin aylara göre toplam çalışma hacmi.</p></div></div>
+            <canvas id="siteMonthChart" class="chart" height="240"></canvas>
+          </section>
+        </section>
+
+        <section class="tab-panel" id="tab-workers">
+          <div class="two-col">
+            <section class="panel">
+              <div class="panel-head"><div><h3>İşçi Ekle / Düzenle</h3><p class="muted">Yevmiye buradan tanımlanır.</p></div></div>
+              <form id="workerForm" class="form-grid two">
+                <input type="hidden" id="workerId">
+                <div class="span-2"><label>Ad Soyad</label><input id="workerName" required placeholder="Örn. Ahmet Yılmaz"></div>
+                <div><label>Yevmiye (₺)</label><input id="workerWage" type="number" min="0" step="0.01" inputmode="decimal" required></div>
+                <div><label>İşe Başlama</label><input id="workerStart" type="date"></div>
+                <div><label>Telefon</label><input id="workerPhone" inputmode="tel" placeholder="Opsiyonel"></div>
+                <div><label>Görev</label><input id="workerRole" placeholder="Usta, kalfa…"></div>
+                <div class="span-2"><label>Not</label><input id="workerNote" placeholder="Opsiyonel"></div>
+                <div class="span-2 action-grid two"><button class="primary" type="submit">💾 İşçiyi Kaydet</button><button type="button" id="workerResetBtn">Temizle</button></div>
+              </form>
+            </section>
+            <section class="panel">
+              <div class="panel-head"><div><h3>Şantiye İşçileri</h3><p class="muted">Aktif ekip listesi.</p></div></div>
+              <div id="workerCards" class="worker-list"></div>
+            </section>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="siteDialog">
+    <form method="dialog" id="siteForm" class="dialog-card">
+      <input type="hidden" id="siteId">
+      <div class="dialog-head"><h3 id="siteDialogTitle">Şantiye</h3><button value="cancel" class="icon-btn">✕</button></div>
+      <div class="form-grid two">
+        <div class="span-2"><label>Şantiye Adı</label><input id="siteName" required placeholder="Örn. Şeyh Devati Camii"></div>
+        <div><label>Başlangıç Tarihi</label><input id="siteStart" type="date" required></div>
+        <div><label>Durum</label><select id="siteStatus"><option>Devam Ediyor</option><option>Beklemede</option><option>Tamamlandı</option></select></div>
+        <div class="span-2"><label>Konum / Açıklama</label><input id="siteLocation" placeholder="Üsküdar / İstanbul"></div>
+      </div>
+      <div class="action-grid two dialog-actions"><button class="primary" value="default" id="siteSaveBtn">💾 Kaydet</button><button value="cancel">Vazgeç</button></div>
+      <button type="button" class="danger full" id="deleteSiteBtn" style="display:none">🗑️ Şantiyeyi Sil</button>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast"></div>
+  <script src="app.js"></script>
+</body>
+</html>
